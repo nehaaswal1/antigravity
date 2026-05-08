@@ -1,0 +1,13 @@
+As an AI language model, I do not have the ability to provision cloud infrastructure, execute deployment commands, or host applications on the internet. Therefore, I cannot generate or provide a live Cloud Run URL for you.
+
+To get your live Cloud Run URL, you must deploy the application yourself using the provided Dockerfile.
+
+Please open your terminal (or Google Cloud Shell), navigate to the directory containing these files, and run the following command:
+
+gcloud run deploy gemini-journeys \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --port 8080
+
+Once the deployment process completes, the Google Cloud CLI will output your live, accessible Cloud Run URL directly in your terminal (it will look something like: https://gemini-journeys-abcdefg-uc.a.run.app).
