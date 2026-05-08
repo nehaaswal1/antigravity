@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { TravelPreferences, TripPlan, Activity, RealTimeContext } from '../types';
-import { generateId, generateImageUrl } from '../utils';
+import { parseGroundingMetadata, enrichActivity } from '../utils';
 
 // Initialize the SDK strictly according to guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, vertexai: true });
@@ -12,11 +12,20 @@ const activitySchema = {
         name: { type: Type.STRING, description: "Name of the activity or place" },
         description: { type: Type.STRING, description: "Engaging description of what to do" },
         location: { type: Type.STRING, description: "Specific neighborhood or address" },
+        coordinates: {
+            type: Type.OBJECT,
+            description: "Approximate latitude and longitude of the location.",
+            properties: {
+                lat: { type: Type.NUMBER },
+                lng: { type: Type.NUMBER }
+            },
+            required: ["lat", "lng"]
+        },
         estimatedCost: { type: Type.STRING, description: "Estimated cost in local currency or USD" },
         travelTip: { type: Type.STRING, description: "A useful tip for this specific activity" },
         transitInfo: { type: Type.STRING, description: "Logical transit instructions and estimated time from the previous activity (or hotel if first)." }
     },
-    required: ["timeOfDay", "name", "description", "location", "estimatedCost", "travelTip", "transitInfo"]
+    required: ["timeOfDay", "name", "description", "location", "coordinates", "estimatedCost", "travelTip", "transitInfo"]
 };
 
 const itinerarySchema = {
@@ -62,15 +71,12 @@ export const getRealTimeContext = async (destination: string): Promise<RealTimeC
         const text = response.text || "No current events found.";
         const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         
-        const sources = chunks
-            .map(chunk => chunk.web)
-            .filter((web): web is { uri: string; title: string } => web !== undefined && web.uri !== undefined && web.title !== undefined)
-            .map(web => ({ title: web.title, uri: web.uri }));
+        const sources = parseGroundingMetadata(chunks);
 
         return {
             weather: "Check local forecasts for exact details.", 
             events: text,
-            sources: sources.slice(0, 3) // Keep top 3 sources
+            sources: sources.slice(0, 3)
         };
     } catch (error) {
         console.error("Error fetching real-time context:", error);
@@ -98,6 +104,7 @@ export const generateItinerary = async (prefs: TravelPreferences, contextEvents:
     CRITICAL INSTRUCTIONS: 
     1. You MUST adapt the itinerary to the real-time context. If bad weather is mentioned, suggest indoor activities. If local festivals are mentioned, include them.
     2. GEOGRAPHICAL LOGIC: Ensure activities flow logically to minimize travel time. You MUST provide 'transitInfo' for each activity, explaining the best way to get there from the previous location (or hotel) and the estimated travel time.
+    3. Provide approximate latitude and longitude coordinates for every activity location.
     
     Provide realistic estimated costs based on the budget level.
     Make the descriptions engaging and unique.
@@ -117,20 +124,46 @@ export const generateItinerary = async (prefs: TravelPreferences, contextEvents:
             }
         });
 
-        const plan = JSON.parse(response.text) as TripPlan;
+        const rawPlan = JSON.parse(response.text) as TripPlan;
         
-        // Add unique IDs and images using utility functions
-        plan.days.forEach(day => {
-            day.activities.forEach(act => {
-                act.id = generateId();
-                act.imageUrl = generateImageUrl(act.name);
-            });
-        });
+        // Apply DRY enrichment logic immutably
+        const enrichedPlan: TripPlan = {
+            ...rawPlan,
+            days: rawPlan.days.map(day => ({
+                ...day,
+                activities: day.activities.map(act => enrichActivity(act as any))
+            }))
+        };
 
-        return plan;
+        return enrichedPlan;
     } catch (error) {
         console.error("Error generating itinerary:", error);
         throw new Error("Failed to generate itinerary. Please try again.");
+    }
+};
+
+export const generateTripCoverImage = async (destination: string, summary: string): Promise<string | undefined> => {
+    try {
+        const prompt = `A beautiful, high-quality, cinematic travel photography shot of ${destination}. Vibe: ${summary.substring(0, 100)}. No text, no words, scenic landscape or cityscape.`;
+        
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
+            config: {
+                numberOfImages: 1,
+                outputMimeType: 'image/jpeg',
+                aspectRatio: '16:9',
+            },
+        });
+
+        const base64ImageBytes = response.generatedImages[0]?.image?.imageBytes;
+        if (base64ImageBytes) {
+            return `data:image/jpeg;base64,${base64ImageBytes}`;
+        }
+        return undefined;
+    } catch (error) {
+        console.error("Error generating cover image with Imagen:", error);
+        return undefined; // Fail gracefully, UI will fallback to standard header
     }
 };
 
@@ -149,7 +182,7 @@ export const swapActivity = async (
     - Budget: ${prefs.budget}
     - Interests: ${prefs.interests.join(', ')}
     
-    Ensure the new activity is geographically logical and provide updated 'transitInfo'.
+    Ensure the new activity is geographically logical, provide updated 'transitInfo', and include approximate latitude/longitude coordinates.
     Return ONLY the new activity details in JSON format.
     `;
 
@@ -167,11 +200,10 @@ export const swapActivity = async (
             }
         });
 
-        const newActivity = JSON.parse(response.text) as Activity;
-        newActivity.id = generateId();
-        newActivity.imageUrl = generateImageUrl(newActivity.name);
+        const rawNewActivity = JSON.parse(response.text) as Omit<Activity, 'id' | 'imageUrl'>;
         
-        return newActivity;
+        // Apply DRY enrichment logic
+        return enrichActivity(rawNewActivity);
     } catch (error) {
         console.error("Error swapping activity:", error);
         throw new Error("Failed to find an alternative activity.");
