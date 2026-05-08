@@ -34,38 +34,40 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                         <h1 className="text-2xl font-bold text-gray-900">{plan.title}</h1>
                         <p className="text-sm text-gray-500">{preferences.destination} • {preferences.durationDays} Days • {preferences.pace} Pace</p>
                     </div>
-                    <div className="flex items-center space-x-6">
+                    <nav className="flex items-center space-x-6" aria-label="Itinerary Actions">
                         <button 
                             onClick={() => window.print()}
-                            className="print:hidden text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center"
+                            aria-label="Print current day itinerary"
+                            className="print:hidden text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-2 py-1"
                         >
-                            <Printer className="w-4 h-4 mr-1.5" /> Print Day
+                            <Printer className="w-4 h-4 mr-1.5" aria-hidden="true" /> Print Day
                         </button>
                         <button 
                             onClick={onStartOver}
-                            className="print:hidden text-sm font-medium text-brand-600 hover:text-brand-800 transition-colors"
+                            aria-label="Start over and create a new itinerary"
+                            className="print:hidden text-sm font-medium text-brand-600 hover:text-brand-800 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-2 py-1"
                         >
                             Start Over
                         </button>
-                    </div>
+                    </nav>
                 </div>
             </header>
 
             <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 
                 {/* Summary & Context Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8" aria-label="Trip Overview and Context">
                     <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 print:border-gray-300 print:shadow-none">
                         <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                            <Map className="w-5 h-5 mr-2 text-brand-500 print:text-black" /> Trip Overview
+                            <Map className="w-5 h-5 mr-2 text-brand-500 print:text-black" aria-hidden="true" /> Trip Overview
                         </h2>
                         <p className="text-gray-600 leading-relaxed print:text-black">{plan.summary}</p>
                     </div>
 
                     {context && (
-                        <div className="bg-gradient-to-br from-brand-50 to-sky-50 rounded-2xl p-6 shadow-sm border border-brand-100 print:bg-none print:border-gray-300 print:shadow-none">
+                        <aside className="bg-gradient-to-br from-brand-50 to-sky-50 rounded-2xl p-6 shadow-sm border border-brand-100 print:bg-none print:border-gray-300 print:shadow-none" aria-label="Live Local Context">
                             <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                                <Info className="w-5 h-5 mr-2 text-brand-500 print:text-black" /> Live Local Context
+                                <Info className="w-5 h-5 mr-2 text-brand-500 print:text-black" aria-hidden="true" /> Live Local Context
                             </h2>
                             <div className="space-y-4">
                                 <div>
@@ -78,8 +80,8 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                                         <ul className="space-y-1">
                                             {context.sources.map((source, idx) => (
                                                 <li key={idx}>
-                                                    <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline flex items-center truncate">
-                                                        <ExternalLink className="w-3 h-3 mr-1 flex-shrink-0" />
+                                                    <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline flex items-center truncate focus:outline-none focus:ring-2 focus:ring-brand-500 rounded">
+                                                        <ExternalLink className="w-3 h-3 mr-1 flex-shrink-0" aria-hidden="true" />
                                                         {source.title}
                                                     </a>
                                                 </li>
@@ -88,27 +90,32 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </aside>
                     )}
-                </div>
+                </section>
 
                 {/* Day Navigation */}
-                <div className="print:hidden flex items-center justify-between mb-6 bg-white p-2 rounded-full shadow-sm border border-gray-100">
+                <nav className="print:hidden flex items-center justify-between mb-6 bg-white p-2 rounded-full shadow-sm border border-gray-100" aria-label="Day Navigation">
                     <button 
                         onClick={handlePrevDay}
                         disabled={activeDay === 0}
-                        className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                        aria-label="Previous Day"
+                        className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
-                        <ChevronLeft className="w-6 h-6 text-gray-700" />
+                        <ChevronLeft className="w-6 h-6 text-gray-700" aria-hidden="true" />
                     </button>
                     
-                    <div className="flex-1 overflow-x-auto hide-scrollbar px-4">
+                    <div className="flex-1 overflow-x-auto hide-scrollbar px-4" role="tablist">
                         <div className="flex justify-center space-x-2 min-w-max">
                             {plan.days.map((day, idx) => (
                                 <button
                                     key={day.dayNumber}
+                                    role="tab"
+                                    aria-selected={activeDay === idx}
+                                    aria-controls={`day-panel-${idx}`}
+                                    id={`day-tab-${idx}`}
                                     onClick={() => setActiveDay(idx)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 ${
                                         activeDay === idx 
                                             ? 'bg-brand-600 text-white shadow-md' 
                                             : 'text-gray-600 hover:bg-gray-100'
@@ -123,24 +130,31 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                     <button 
                         onClick={handleNextDay}
                         disabled={activeDay === plan.days.length - 1}
-                        className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                        aria-label="Next Day"
+                        className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
-                        <ChevronRight className="w-6 h-6 text-gray-700" />
+                        <ChevronRight className="w-6 h-6 text-gray-700" aria-hidden="true" />
                     </button>
-                </div>
+                </nav>
 
                 {/* Active Day Content */}
-                <div className="animate-fadeIn">
-                    <div className="mb-6 text-center print:text-left print:mb-4">
+                <section 
+                    id={`day-panel-${activeDay}`}
+                    role="tabpanel"
+                    aria-labelledby={`day-tab-${activeDay}`}
+                    className="animate-fadeIn"
+                    aria-live="polite"
+                >
+                    <header className="mb-6 text-center print:text-left print:mb-4">
                         <h2 className="text-2xl font-bold text-gray-900">Day {currentDayData.dayNumber}</h2>
                         <p className="text-brand-600 font-medium print:text-gray-700">{currentDayData.theme}</p>
-                    </div>
+                    </header>
 
                     <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent print:before:hidden print:space-y-4">
                         {currentDayData.activities.map((activity, index) => (
                             <div key={activity.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active print:flex-row print:odd:flex-row print:items-start">
                                 {/* Timeline Dot */}
-                                <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-brand-100 text-brand-600 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 print:hidden">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-brand-100 text-brand-600 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 print:hidden" aria-hidden="true">
                                     <span className="text-xs font-bold">{index + 1}</span>
                                 </div>
                                 
@@ -154,7 +168,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                             </div>
                         ))}
                     </div>
-                </div>
+                </section>
 
             </main>
         </div>
