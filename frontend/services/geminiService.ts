@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { TravelPreferences, TripPlan, Activity, RealTimeContext } from '../types';
+import { generateId, generateImageUrl } from '../utils';
 
 // Initialize the SDK strictly according to guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, vertexai: true });
@@ -12,9 +13,10 @@ const activitySchema = {
         description: { type: Type.STRING, description: "Engaging description of what to do" },
         location: { type: Type.STRING, description: "Specific neighborhood or address" },
         estimatedCost: { type: Type.STRING, description: "Estimated cost in local currency or USD" },
-        travelTip: { type: Type.STRING, description: "A useful tip for this specific activity" }
+        travelTip: { type: Type.STRING, description: "A useful tip for this specific activity" },
+        transitInfo: { type: Type.STRING, description: "Logical transit instructions and estimated time from the previous activity (or hotel if first)." }
     },
-    required: ["timeOfDay", "name", "description", "location", "estimatedCost", "travelTip"]
+    required: ["timeOfDay", "name", "description", "location", "estimatedCost", "travelTip", "transitInfo"]
 };
 
 const itinerarySchema = {
@@ -47,7 +49,10 @@ export const getRealTimeContext = async (destination: string): Promise<RealTimeC
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: prompt,
+            contents: {
+                role: 'user',
+                parts: [{ text: prompt }]
+            },
             config: {
                 tools: [{ googleSearch: {} }],
                 temperature: 0.3
@@ -90,17 +95,21 @@ export const generateItinerary = async (prefs: TravelPreferences, contextEvents:
     Real-Time Local Context (Weather/Events):
     ${contextEvents || 'None available.'}
     
-    CRITICAL INSTRUCTION: You MUST adapt the itinerary to this real-time context. If there is bad weather mentioned, suggest indoor activities. If there are local festivals or events mentioned, try to include them in the itinerary.
+    CRITICAL INSTRUCTIONS: 
+    1. You MUST adapt the itinerary to the real-time context. If bad weather is mentioned, suggest indoor activities. If local festivals are mentioned, include them.
+    2. GEOGRAPHICAL LOGIC: Ensure activities flow logically to minimize travel time. You MUST provide 'transitInfo' for each activity, explaining the best way to get there from the previous location (or hotel) and the estimated travel time.
     
-    Ensure the activities flow logically geographically to minimize travel time. 
     Provide realistic estimated costs based on the budget level.
-    Make the descriptions engaging and unique, avoiding generic tourist traps unless they are absolute must-sees, and even then, provide a unique angle.
+    Make the descriptions engaging and unique.
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: prompt,
+            contents: {
+                role: 'user',
+                parts: [{ text: prompt }]
+            },
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: itinerarySchema,
@@ -110,11 +119,11 @@ export const generateItinerary = async (prefs: TravelPreferences, contextEvents:
 
         const plan = JSON.parse(response.text) as TripPlan;
         
-        // Add unique IDs to activities for React keys and swapping logic
+        // Add unique IDs and images using utility functions
         plan.days.forEach(day => {
             day.activities.forEach(act => {
-                act.id = Math.random().toString(36).substring(2, 9);
-                act.imageUrl = `https://picsum.photos/seed/${encodeURIComponent(act.name)}/400/300`;
+                act.id = generateId();
+                act.imageUrl = generateImageUrl(act.name);
             });
         });
 
@@ -140,13 +149,17 @@ export const swapActivity = async (
     - Budget: ${prefs.budget}
     - Interests: ${prefs.interests.join(', ')}
     
+    Ensure the new activity is geographically logical and provide updated 'transitInfo'.
     Return ONLY the new activity details in JSON format.
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: prompt,
+            contents: {
+                role: 'user',
+                parts: [{ text: prompt }]
+            },
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: activitySchema,
@@ -155,8 +168,8 @@ export const swapActivity = async (
         });
 
         const newActivity = JSON.parse(response.text) as Activity;
-        newActivity.id = Math.random().toString(36).substring(2, 9);
-        newActivity.imageUrl = `https://picsum.photos/seed/${encodeURIComponent(newActivity.name)}/400/300`;
+        newActivity.id = generateId();
+        newActivity.imageUrl = generateImageUrl(newActivity.name);
         
         return newActivity;
     } catch (error) {
@@ -165,16 +178,16 @@ export const swapActivity = async (
     }
 };
 
-export const sendChatMessage = async (
+export const sendChatMessageStream = async (
     message: string,
     history: { role: 'user' | 'model', text: string }[],
     plan: TripPlan,
     prefs: TravelPreferences
-): Promise<string> => {
+) => {
     const systemInstruction = `You are a helpful, expert travel assistant for a user going to ${prefs.destination}.
     Here is their current generated itinerary: ${JSON.stringify(plan)}.
     Answer their questions about the trip, provide packing tips, give directions between activities, or offer local etiquette advice. 
-    Keep answers concise, friendly, and directly related to their itinerary. Use markdown for formatting if needed.`;
+    Keep answers concise, friendly, and directly related to their itinerary. Use markdown for formatting.`;
 
     const contents = history.map(h => ({
         role: h.role,
@@ -182,18 +195,12 @@ export const sendChatMessage = async (
     }));
     contents.push({ role: 'user', parts: [{ text: message }] });
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: contents,
-            config: { 
-                systemInstruction,
-                temperature: 0.7
-            }
-        });
-        return response.text || 'I am sorry, I could not process that request.';
-    } catch (error) {
-        console.error("Error in chat:", error);
-        return "Sorry, I'm having trouble connecting right now. Please try again.";
-    }
+    return await ai.models.generateContentStream({
+        model: 'gemini-2.5-flash',
+        contents: contents,
+        config: { 
+            systemInstruction,
+            temperature: 0.7
+        }
+    });
 };
