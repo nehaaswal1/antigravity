@@ -51,6 +51,24 @@
         .markdown-body li { margin-bottom: 0.25em; }
         .markdown-body a { text-decoration: underline; text-underline-offset: 2px; color: #0d9488; }
     </style>
+    <!-- Load Google Maps API. In a real app, the key would be injected securely. -->
+    <script>
+        // Safely attempt to get the API key from the environment, fallback to a placeholder for the sandbox
+        let mapsApiKey = '';
+        try {
+            mapsApiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+        } catch(e) {}
+        
+        if (mapsApiKey) {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&libraries=places`;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        } else {
+            console.warn("Google Maps API key not found. Map features will be disabled.");
+        }
+    </script>
 </head>
 <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
