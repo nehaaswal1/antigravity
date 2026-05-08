@@ -16,7 +16,7 @@ interface ChatMessage {
 export const TravelAssistantChat: React.FC<TravelAssistantChatProps> = ({ plan, preferences }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([
-        { role: 'model', text: `Hi! I'm your Wanderlust Assistant. I have your ${preferences.destination} itinerary memorized. What questions do you have about your trip?` }
+        { role: 'model', text: `Hi! I'm your Gemini Assistant. I have your ${preferences.destination} itinerary memorized. What questions do you have about your trip?` }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
