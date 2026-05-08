@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { HeroForm } from './components/HeroForm';
 import { ItineraryView } from './components/ItineraryView';
 import { TravelAssistantChat } from './components/TravelAssistantChat';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { generateItinerary, getRealTimeContext, swapActivity } from './services/geminiService';
 import { TravelPreferences, TripPlan, RealTimeContext, Activity } from './types';
 
@@ -74,59 +75,61 @@ const App: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-            {appState === 'input' && (
-                <HeroForm onSubmit={handleGenerate} isLoading={false} />
-            )}
+        <ErrorBoundary>
+            <main className="min-h-screen bg-gray-50 font-sans text-gray-900">
+                {appState === 'input' && (
+                    <HeroForm onSubmit={handleGenerate} isLoading={false} />
+                )}
 
-            {appState === 'loading' && (
-                <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-                    <div className="relative w-24 h-24 mb-8">
-                        <div className="absolute inset-0 border-4 border-brand-200 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-brand-600 rounded-full border-t-transparent animate-spin"></div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-2xl">✈️</span>
+                {appState === 'loading' && (
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50" role="status" aria-live="polite">
+                        <div className="relative w-24 h-24 mb-8" aria-hidden="true">
+                            <div className="absolute inset-0 border-4 border-brand-200 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-brand-600 rounded-full border-t-transparent animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-2xl">✈️</span>
+                            </div>
                         </div>
+                        <h2 className="text-2xl font-semibold text-gray-800 mb-2">Curating Your Experience</h2>
+                        <p className="text-brand-600 font-medium animate-pulse">{loadingStep}</p>
                     </div>
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-2">Curating Your Experience</h2>
-                    <p className="text-brand-600 font-medium animate-pulse">{loadingStep}</p>
-                </div>
-            )}
+                )}
 
-            {appState === 'error' && (
-                <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
-                    <div className="bg-red-50 text-red-600 p-4 rounded-full mb-4">
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+                {appState === 'error' && (
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center" role="alert">
+                        <div className="bg-red-50 text-red-600 p-4 rounded-full mb-4" aria-hidden="true">
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Oops! Something went wrong.</h2>
+                        <p className="text-gray-600 mb-6 max-w-md">{errorMessage}</p>
+                        <button 
+                            onClick={handleStartOver}
+                            className="px-6 py-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                        >
+                            Try Again
+                        </button>
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Oops! Something went wrong.</h2>
-                    <p className="text-gray-600 mb-6 max-w-md">{errorMessage}</p>
-                    <button 
-                        onClick={handleStartOver}
-                        className="px-6 py-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 transition-colors"
-                    >
-                        Try Again
-                    </button>
-                </div>
-            )}
+                )}
 
-            {appState === 'results' && tripPlan && preferences && (
-                <>
-                    <ItineraryView 
-                        plan={tripPlan} 
-                        context={context} 
-                        preferences={preferences}
-                        onSwapActivity={handleSwapActivity}
-                        onStartOver={handleStartOver}
-                    />
-                    <TravelAssistantChat 
-                        plan={tripPlan}
-                        preferences={preferences}
-                    />
-                </>
-            )}
-        </div>
+                {appState === 'results' && tripPlan && preferences && (
+                    <>
+                        <ItineraryView 
+                            plan={tripPlan} 
+                            context={context} 
+                            preferences={preferences}
+                            onSwapActivity={handleSwapActivity}
+                            onStartOver={handleStartOver}
+                        />
+                        <TravelAssistantChat 
+                            plan={tripPlan}
+                            preferences={preferences}
+                        />
+                    </>
+                )}
+            </main>
+        </ErrorBoundary>
     );
 };
 
