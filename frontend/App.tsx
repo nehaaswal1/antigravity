@@ -3,8 +3,9 @@ import { HeroForm } from './components/HeroForm';
 import { ItineraryView } from './components/ItineraryView';
 import { TravelAssistantChat } from './components/TravelAssistantChat';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { generateItinerary, getRealTimeContext, swapActivity } from './services/geminiService';
+import { generateItinerary, getRealTimeContext, swapActivity, generateTripCoverImage } from './services/geminiService';
 import { TravelPreferences, TripPlan, RealTimeContext, Activity } from './types';
+import { replaceActivityInPlan } from './utils';
 
 type AppState = 'input' | 'loading' | 'results' | 'error';
 
@@ -22,16 +23,21 @@ const App: React.FC = () => {
         setErrorMessage('');
 
         try {
-            // Step 1: Fetch real-time context first so we can feed it into the itinerary generator
+            // Step 1: Fetch real-time context (Google Search Grounding)
             setLoadingStep('Scouting real-time local events and weather...');
             const realTimeData = await getRealTimeContext(prefs.destination);
             setContext(realTimeData);
 
-            // Step 2: Generate itinerary using the fetched context
+            // Step 2: Generate itinerary (Gemini 2.5 Flash)
             setLoadingStep('Crafting your personalized itinerary...');
             const plan = await generateItinerary(prefs, realTimeData.events);
-            setTripPlan(plan);
+            
+            // Step 3: Generate Cover Image (Google Imagen 4.0)
+            setLoadingStep('Painting a picture of your destination...');
+            const coverImageUrl = await generateTripCoverImage(prefs.destination, plan.summary);
+            plan.coverImageUrl = coverImageUrl;
 
+            setTripPlan(plan);
             setAppState('results');
         } catch (error: any) {
             console.error(error);
@@ -50,21 +56,8 @@ const App: React.FC = () => {
         
         setTripPlan(prevPlan => {
             if (!prevPlan) return prevPlan;
-            
-            const newPlan = { ...prevPlan };
-            const newDays = [...newPlan.days];
-            const newActivities = [...newDays[dayIndex].activities];
-            
-            // Find index of old activity and replace it
-            const activityIndex = newActivities.findIndex(a => a.id === oldActivity.id);
-            if (activityIndex !== -1) {
-                newActivities[activityIndex] = newActivity;
-            }
-            
-            newDays[dayIndex] = { ...newDays[dayIndex], activities: newActivities };
-            newPlan.days = newDays;
-            
-            return newPlan;
+            // Use the pure, tested utility function to handle complex state immutability
+            return replaceActivityInPlan(prevPlan, dayIndex, oldActivity.id, newActivity);
         });
     }, [preferences, tripPlan]);
 
