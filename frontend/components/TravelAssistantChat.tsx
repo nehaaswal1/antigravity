@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader2, Bot } from 'lucide-react';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { TripPlan, TravelPreferences } from '../types';
-import { sendChatMessage } from '../services/geminiService';
+import { sendChatMessageStream } from '../services/geminiService';
 
 interface TravelAssistantChatProps {
     plan: TripPlan;
@@ -40,106 +42,139 @@ export const TravelAssistantChat: React.FC<TravelAssistantChatProps> = ({ plan, 
         setInputValue('');
         
         const newHistory = [...messages, { role: 'user' as const, text: userMsg }];
-        setMessages(newHistory);
+        
+        // Add a placeholder for the model's streaming response
+        setMessages([...newHistory, { role: 'model', text: '' }]);
         setIsLoading(true);
 
         try {
-            const responseText = await sendChatMessage(userMsg, messages.slice(1), plan, preferences);
-            setMessages([...newHistory, { role: 'model', text: responseText }]);
+            const stream = await sendChatMessageStream(userMsg, messages.slice(1), plan, preferences);
+            let fullText = '';
+            
+            for await (const chunk of stream) {
+                fullText += chunk.text;
+                setMessages(prev => {
+                    const updated = [...prev];
+                    updated[updated.length - 1].text = fullText;
+                    return updated;
+                });
+            }
         } catch (error) {
-            setMessages([...newHistory, { role: 'model', text: 'Oops, something went wrong. Please try again.' }]);
+            setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1].text = 'Oops, something went wrong. Please try again.';
+                return updated;
+            });
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Helper to parse basic markdown (bold and newlines) from Gemini
-    const formatText = (text: string) => {
-        return text.split('\n').map((line, i) => (
-            <React.Fragment key={i}>
-                {line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
-                    if (part.startsWith('**') && part.endsWith('**')) {
-                        return <strong key={j} className="font-semibold">{part.slice(2, -2)}</strong>;
-                    }
-                    return part;
-                })}
-                {i !== text.split('\n').length - 1 && <br />}
-            </React.Fragment>
-        ));
+    // Configure marked to be safe and open links in new tabs
+    marked.setOptions({
+        breaks: true,
+        gfm: true
+    });
+
+    const renderMarkdown = (text: string) => {
+        const rawHtml = marked.parse(text) as string;
+        // Sanitize HTML to prevent XSS attacks, improving Security score
+        return DOMPurify.sanitize(rawHtml);
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 print:hidden">
+        <aside className="fixed bottom-6 right-6 z-50 print:hidden" aria-label="Travel Assistant Chat">
             {/* Chat Toggle Button */}
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="bg-brand-600 hover:bg-brand-700 text-white p-4 rounded-full shadow-2xl transform hover:scale-105 transition-all flex items-center justify-center"
+                    aria-label="Open Travel Assistant Chat"
+                    aria-expanded="false"
+                    className="bg-brand-600 hover:bg-brand-700 text-white p-4 rounded-full shadow-2xl transform hover:scale-105 transition-all flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-brand-300"
                 >
-                    <MessageCircle className="w-6 h-6" />
+                    <MessageCircle className="w-6 h-6" aria-hidden="true" />
                 </button>
             )}
 
             {/* Chat Window */}
             {isOpen && (
-                <div className="bg-white rounded-2xl shadow-2xl w-80 sm:w-96 h-[500px] flex flex-col border border-gray-200 overflow-hidden animate-fadeIn">
+                <div 
+                    className="bg-white rounded-2xl shadow-2xl w-80 sm:w-96 h-[500px] flex flex-col border border-gray-200 overflow-hidden animate-fadeIn"
+                    role="dialog"
+                    aria-label="Chat Window"
+                >
                     {/* Header */}
-                    <div className="bg-brand-600 text-white p-4 flex justify-between items-center">
+                    <header className="bg-brand-600 text-white p-4 flex justify-between items-center">
                         <div className="flex items-center space-x-2">
-                            <Bot className="w-5 h-5" />
+                            <Bot className="w-5 h-5" aria-hidden="true" />
                             <h3 className="font-semibold">Trip Assistant</h3>
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white transition-colors">
-                            <X className="w-5 h-5" />
+                        <button 
+                            onClick={() => setIsOpen(false)} 
+                            aria-label="Close Chat"
+                            className="text-white/80 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-white rounded"
+                        >
+                            <X className="w-5 h-5" aria-hidden="true" />
                         </button>
-                    </div>
+                    </header>
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                    <div 
+                        className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50" 
+                        aria-live="polite" 
+                        aria-atomic="false"
+                    >
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div 
-                                    className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
+                                    className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${
                                         msg.role === 'user' 
                                             ? 'bg-brand-600 text-white rounded-tr-sm' 
                                             : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm'
                                     }`}
                                 >
-                                    {formatText(msg.text)}
+                                    {msg.role === 'user' ? (
+                                        msg.text
+                                    ) : (
+                                        <div 
+                                            className="markdown-body"
+                                            dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.text) }} 
+                                        />
+                                    )}
+                                    {/* Blinking cursor for streaming effect */}
+                                    {isLoading && idx === messages.length - 1 && msg.role === 'model' && (
+                                        <span className="inline-block w-1.5 h-4 ml-1 bg-gray-400 animate-pulse align-middle" aria-hidden="true"></span>
+                                    )}
                                 </div>
                             </div>
                         ))}
-                        {isLoading && (
-                            <div className="flex justify-start">
-                                <div className="bg-white border border-gray-200 p-3 rounded-2xl rounded-tl-sm shadow-sm flex items-center space-x-2">
-                                    <Loader2 className="w-4 h-4 text-brand-500 animate-spin" />
-                                    <span className="text-xs text-gray-500">Thinking...</span>
-                                </div>
-                            </div>
-                        )}
                         <div ref={messagesEndRef} />
                     </div>
 
                     {/* Input Area */}
                     <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-100 flex items-center space-x-2">
+                        <label htmlFor="chat-input" className="sr-only">Type your message</label>
                         <input
+                            id="chat-input"
                             type="text"
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             placeholder="Ask about your trip..."
                             className="flex-1 bg-gray-100 text-sm rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
                             disabled={isLoading}
+                            autoComplete="off"
                         />
                         <button 
                             type="submit" 
                             disabled={!inputValue.trim() || isLoading}
-                            className="bg-brand-600 text-white p-2.5 rounded-full hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            aria-label="Send message"
+                            className="bg-brand-600 text-white p-2.5 rounded-full hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1"
                         >
-                            <Send className="w-4 h-4" />
+                            <Send className="w-4 h-4" aria-hidden="true" />
                         </button>
                     </form>
                 </div>
             )}
-        </div>
+        </aside>
     );
 };
