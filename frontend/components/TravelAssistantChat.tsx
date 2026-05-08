@@ -15,6 +15,18 @@ interface ChatMessage {
     text: string;
 }
 
+// Configure marked once outside the component lifecycle
+marked.setOptions({
+    breaks: true,
+    gfm: true
+});
+
+// Pure function extracted outside the component to avoid recreation on renders
+const renderMarkdown = (text: string): string => {
+    const rawHtml = marked.parse(text) as string;
+    return DOMPurify.sanitize(rawHtml);
+};
+
 export const TravelAssistantChat: React.FC<TravelAssistantChatProps> = ({ plan, preferences }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([
@@ -68,18 +80,6 @@ export const TravelAssistantChat: React.FC<TravelAssistantChatProps> = ({ plan, 
         } finally {
             setIsLoading(false);
         }
-    };
-
-    // Configure marked to be safe and open links in new tabs
-    marked.setOptions({
-        breaks: true,
-        gfm: true
-    });
-
-    const renderMarkdown = (text: string) => {
-        const rawHtml = marked.parse(text) as string;
-        // Sanitize HTML to prevent XSS attacks, improving Security score
-        return DOMPurify.sanitize(rawHtml);
     };
 
     return (
