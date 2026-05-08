@@ -48,7 +48,7 @@ export const HeroForm: React.FC<HeroFormProps> = ({ onSubmit, isLoading }) => {
             <div className="relative z-10 w-full max-w-4xl p-6">
                 <div className="text-center mb-10">
                     <h1 className="text-5xl md:text-7xl font-bold text-white mb-4 tracking-tight">
-                        Wanderlust <span className="text-brand-400">Dynamics</span>
+                        Gemini <span className="text-brand-400">Journeys</span>
                     </h1>
                     <p className="text-xl text-gray-200 font-light">
                         Intelligent, real-time travel planning tailored to your exact vibe.
