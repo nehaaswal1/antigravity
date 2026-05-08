@@ -7,12 +7,18 @@ export interface TravelPreferences {
     dietary: string;
 }
 
+export interface Coordinates {
+    lat: number;
+    lng: number;
+}
+
 export interface Activity {
     id: string;
     timeOfDay: 'Morning' | 'Afternoon' | 'Evening';
     name: string;
     description: string;
     location: string;
+    coordinates?: Coordinates; // Added for Google Maps integration
     estimatedCost: string;
     travelTip: string;
     transitInfo: string;
@@ -28,6 +34,7 @@ export interface DailyItinerary {
 export interface TripPlan {
     title: string;
     summary: string;
+    coverImageUrl?: string; // Added for Google Imagen integration
     days: DailyItinerary[];
 }
 
