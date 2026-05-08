@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TripPlan, RealTimeContext, TravelPreferences, Activity } from '../types';
 import { ActivityCard } from './ActivityCard';
+import { DayMap } from './DayMap';
 import { Map, Info, ExternalLink, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
 
 interface ItineraryViewProps {
@@ -27,25 +28,44 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm print:static print:shadow-none print:border-b-2 print:border-black">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{plan.title}</h1>
-                        <p className="text-sm text-gray-500">{preferences.destination} • {preferences.durationDays} Days • {preferences.pace} Pace</p>
+            {/* Hero Header with Imagen Integration */}
+            <header className={`relative ${plan.coverImageUrl ? 'bg-gray-900' : 'bg-white border-b border-gray-200'} print:bg-white print:border-b-2 print:border-black shadow-sm`}>
+                {plan.coverImageUrl && (
+                    <div className="absolute inset-0 z-0 print:hidden">
+                        <img src={plan.coverImageUrl} alt={`Beautiful view of ${preferences.destination}`} className="w-full h-full object-cover opacity-60" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
                     </div>
-                    <nav className="flex items-center space-x-6" aria-label="Itinerary Actions">
+                )}
+                
+                <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
+                    <div>
+                        <h1 className={`text-3xl md:text-4xl font-bold ${plan.coverImageUrl ? 'text-white' : 'text-gray-900'} print:text-black`}>
+                            {plan.title}
+                        </h1>
+                        <p className={`text-sm mt-2 font-medium ${plan.coverImageUrl ? 'text-gray-300' : 'text-gray-500'} print:text-gray-600`}>
+                            {preferences.destination} • {preferences.durationDays} Days • {preferences.pace} Pace
+                        </p>
+                    </div>
+                    <nav className="flex items-center space-x-4" aria-label="Itinerary Actions">
                         <button 
                             onClick={() => window.print()}
                             aria-label="Print current day itinerary"
-                            className="print:hidden text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-2 py-1"
+                            className={`print:hidden text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                                plan.coverImageUrl 
+                                    ? 'text-white bg-white/20 hover:bg-white/30 backdrop-blur-sm' 
+                                    : 'text-gray-600 bg-gray-100 hover:bg-gray-200'
+                            }`}
                         >
-                            <Printer className="w-4 h-4 mr-1.5" aria-hidden="true" /> Print Day
+                            <Printer className="w-4 h-4 mr-2" aria-hidden="true" /> Print Day
                         </button>
                         <button 
                             onClick={onStartOver}
                             aria-label="Start over and create a new itinerary"
-                            className="print:hidden text-sm font-medium text-brand-600 hover:text-brand-800 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-2 py-1"
+                            className={`print:hidden text-sm font-medium px-4 py-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                                plan.coverImageUrl
+                                    ? 'text-white bg-brand-600 hover:bg-brand-500 shadow-lg'
+                                    : 'text-white bg-brand-600 hover:bg-brand-700'
+                            }`}
                         >
                             Start Over
                         </button>
@@ -147,7 +167,12 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                 >
                     <header className="mb-6 text-center print:text-left print:mb-4">
                         <h2 className="text-2xl font-bold text-gray-900">Day {currentDayData.dayNumber}</h2>
-                        <p className="text-brand-600 font-medium print:text-gray-700">{currentDayData.theme}</p>
+                        <p className="text-brand-600 font-medium print:text-gray-700 mb-6">{currentDayData.theme}</p>
+                        
+                        {/* Google Maps Integration */}
+                        <div className="mb-8 max-w-4xl mx-auto">
+                            <DayMap activities={currentDayData.activities} />
+                        </div>
                     </header>
 
                     <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent print:before:hidden print:space-y-4">
