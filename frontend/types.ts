@@ -15,6 +15,7 @@ export interface Activity {
     location: string;
     estimatedCost: string;
     travelTip: string;
+    transitInfo: string;
     imageUrl?: string;
 }
 
